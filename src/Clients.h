@@ -1,3 +1,11 @@
+/**
+ * @brief 
+ * 
+ * @file Clients.h
+ * @author Arseniy Churin
+ * @date 2018-05-20
+ */
+
 #ifndef CLIENTS_H
 #define CLIENTS_H
 
@@ -22,9 +30,19 @@ typedef struct
     uint16_t id;
 } ClientInfo;
 
+/**
+ * @brief Class to work with nodes data
+ * 
+ * Register/Unregister nodes
+ * 
+ */
 class Clients
 {
   public:
+    /**
+     * @brief Construct a new Clients object
+     * 
+     */
     Clients();
 
     void loop();

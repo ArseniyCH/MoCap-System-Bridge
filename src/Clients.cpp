@@ -1,3 +1,11 @@
+/**
+ * @brief 
+ * 
+ * @file Clients.cpp
+ * @author Arseniy Churin
+ * @date 2018-05-20
+ */
+
 #include "Clients.h"
 
 Clients::Clients()
@@ -25,7 +33,7 @@ void Clients::addClient(String mac, AsyncWebSocketClient *client, uint16_t id, R
     else
     {
         int16_t i = getClient(mac);
-        if (client->id() != clientsList.get(i).client->id())
+        if (client->id() != clientsList.get(i).client->id() )
         {
             clientsList.remove(i);
             clientsList.add(s);
@@ -46,7 +54,7 @@ void Clients::updateClients()
 {
     for (int16_t i = 0; i < clientsList.size(); ++i)
     {
-        if (clientsList.get(i).client->status() != WS_CONNECTED)
+        if (clientsList.get(i).client->status() != WS_CONNECTED || !clientsList.get(i).client->client()->connected())
             clientsList.remove(i);
     }
 }
@@ -72,10 +80,15 @@ bool Clients::isContains(String val)
 
 void Clients::printClients()
 {
-    for (int16_t i = 0; i < clientsList.size(); ++i)
+    if (clientsList.size() != 0)
     {
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(clientsList.get(i).mac);
+        Serial.println("Clients:");
+        for (int16_t i = 0; i < clientsList.size(); ++i)
+        {
+            Serial.print(clientsList.get(i).id);
+            Serial.print(": ");
+            Serial.println(clientsList.get(i).mac);
+        }
+        Serial.println();
     }
 }

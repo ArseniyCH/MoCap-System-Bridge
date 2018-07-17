@@ -1,3 +1,11 @@
+/**
+ * @brief 
+ * 
+ * @file StateMachine.hpp
+ * @author Arseniy Churin
+ * @date 2018-05-20
+ */
+
 #ifndef STATEMACHINE_H
 #define STATEMACHINE_H
 

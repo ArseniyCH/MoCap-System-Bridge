@@ -23,15 +23,29 @@ AsyncEventSource events("/events");
 
 Clients clients = Clients();
 
+/**
+ * @brief Recieve ws events
+ * 
+ * @param server 
+ * @param client 
+ * @param type 
+ * @param arg 
+ * @param data 
+ * @param len 
+ */
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
 {
   if (type == WS_EVT_CONNECT)
   {
     client->keepAlivePeriod(1);
     client->printf("whois");
+    os_printf("ws[%s][%u] connect\n", server->url(), client->id());
   }
   else if (type == WS_EVT_DISCONNECT)
   {
+    Serial.print("Client #");
+    Serial.print(client->id());
+    Serial.println(" deleted.");
     clients.deleteClient(client->id());
   }
   else if (type == WS_EVT_ERROR)
@@ -69,6 +83,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
       }
       if (msg.startsWith("id:"))
       {
+
         clients.addClient(msg.substring(3), client, client->id());
       }
 
@@ -121,8 +136,12 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
   }
 }
 
-const char *hostName = "esp-async";
+const char *hostName = "mcs_0";
 
+/**
+ * @brief Main setup method
+ * 
+ */
 void setup()
 {
   Serial.begin(115200);
@@ -144,10 +163,13 @@ String inString;
 
 uint32_t lastMillis = 0;
 
+/**
+ * @brief Main loop method
+ * 
+ */
 void loop()
 {
   clients.loop();
-
   String inString = "";
   while (Serial.available() > 0)
   {
@@ -156,12 +178,28 @@ void loop()
       inString += (char)inChar;
   }
 
+  uint8_t buf[1];
+
   if (inString.compareTo(""))
   {
-    Serial.println(inString);
-    ws.textAll(inString);
+
+    uint8_t numb = inString.toInt();
+
+    buf[0] = numb;
+    ws.binaryAll(buf, 1);
+
+    Serial.print("Send binary; length: ");
+    Serial.println(1);
+    Serial.print("content :");
+    for (int i = 0; i < 1; ++i)
+    {
+      Serial.print(buf[i]);
+    }
+    Serial.println();
+
     inString = "";
   }
+  //clients.printClients();
 
   delay(100);
 }
