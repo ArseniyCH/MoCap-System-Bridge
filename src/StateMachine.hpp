@@ -12,7 +12,10 @@
 #include <Arduino.h>
 #include <WString.h>
 
-typedef enum {
+#include "WebServer.h"
+
+typedef enum
+{
     Undef,
     Bind,
     Detach,
@@ -23,6 +26,8 @@ typedef enum {
 } State;
 
 static State _state = Undef;
+
+WebServer server = WebServer();
 
 static void setState(State state)
 {
@@ -94,22 +99,51 @@ static void stateSearch()
     setState(Search);
 }
 
-void state_loop()
+void state_setup()
 {
 }
 
-void parseInData(String input)
+void state_loop()
 {
-    if (input.equals("bndmode"))
-        stateBind();
-    if (input.equals("detachmode"))
-        stateDetach();
-    if (input.equals("777"))
-        stateCalibration();
-    if (input.equals("101"))
-        stateActive();
-    if (input.equals("010"))
-        stateStandby();
+    String inString = "";
+    while (Serial.available() > 0)
+    {
+        int inChar = Serial.read();
+        if (inChar != '\n')
+            inString += (char)inChar;
+    }
+    char in[100];
+    strcpy(in, inString.c_str());
+
+    if (inString.compareTo(""))
+    {
+        char buf[inString.length()];
+        char *p = buf;
+        char *str;
+        String out = "";
+        uint8_t i = 0;
+        str = strtok_r(in, " ", &p);
+        while (str != NULL)
+        {
+            out += (char)atoi(str);
+            i++;
+            str = strtok_r(NULL, " ", &p);
+        }
+
+        server.broadcastBin((uint8_t *)out.c_str(), out.length());
+
+        Serial.print("Send binary; length: ");
+        Serial.println(out.length());
+        Serial.print("content :");
+        for (int i = 0; i < out.length(); ++i)
+        {
+            Serial.print((uint8_t)out[i]);
+            Serial.print(" ");
+        }
+        Serial.println();
+
+        inString = "";
+    }
 }
 
 #endif STATEMACHINE_H

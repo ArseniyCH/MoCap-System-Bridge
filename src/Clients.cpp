@@ -10,85 +10,142 @@
 
 Clients::Clients()
 {
-    clientsList = Linkedlist<ClientInfo>();
+    clientsMap.setNullValue(nullptr);
 }
 
 void Clients::loop()
 {
-    // Serial.println("MAC:");
-    // printClients();
-    // Serial.println("end");
     updateClients();
 }
 
-void Clients::addClient(String mac, AsyncWebSocketClient *client, uint16_t id, RGB color)
+void Clients::addClient(uint8_t *mac, AsyncWebSocketClient *client, uint16_t id, RGB color)
 {
-    ClientInfo s;
-    s.mac = mac;
-    s.color = color;
-    s.client = client;
-    s.id = id;
-    if (!isContains(mac))
-        clientsList.add(s);
-    else
-    {
-        int16_t i = getClient(mac);
-        if (client->id() != clientsList.get(i).client->id() )
-        {
-            clientsList.remove(i);
-            clientsList.add(s);
-        }
-    }
+    ClientInfo *s;
+    for (int i = 0; i < 6; ++i)
+        s->mac[i] = mac[i];
+    s->color = color;
+    s->client = client;
+    s->id = id;
+    uint32_t m = shortMAC(mac);
+    if (!contains(m))
+        clientsMap[m] = s;
+    else if (client->id() != clientsMap[m]->id)
+        clientsMap[m] = s;
 }
 
-int16_t Clients::getClient(String mac)
+Ticker Clients::addEmptyClient(uint8_t *mac)
 {
-    for (int16_t i = 0; i < clientsList.size(); ++i)
+    //Distruct if not confirmed
+    ClientInfo *eci;
+    eci->mac = mac;
+    clientsMap[shortMAC(mac)] = eci;
+    return eci->client_ticker;
+}
+
+bool Clients::confirmClient(uint8_t *mac)
+{
+    ClientInfo *ci = clientsMap[shortMAC(mac)];
+    if (ci)
     {
-        if (clientsList.get(i).mac.equals(mac))
-            return i;
+        ClientInfo *ci = clientsMap[shortMAC(mac)];
+        ci->confirmed = true;
+        ci->client_ticker.detach();
+        return true;
     }
+
+    return false;
+}
+
+bool Clients::isConfirmed(uint16_t id)
+{
+    uint32_t shrt_mac;
+    if (getShortMacById(shrt_mac, id) && clientsMap[shrt_mac]->confirmed)
+        return true;
+    return false;
+}
+
+void Clients::completeClientInfo(uint8_t *mac, AsyncWebSocketClient *client, uint16_t id, RGB color)
+{
+    ClientInfo *ci = clientsMap[shortMAC(mac)];
+    ci->client = client;
+    ci->id = id;
+    ci->mac = mac;
+
+    //TODO: run ping/pong
 }
 
 void Clients::updateClients()
-{
-    for (int16_t i = 0; i < clientsList.size(); ++i)
-    {
-        if (clientsList.get(i).client->status() != WS_CONNECTED || !clientsList.get(i).client->client()->connected())
-            clientsList.remove(i);
-    }
+{ //TODO: PEREPISAT' ETO GOVNO
+    // for (int16_t i = 0; i < clientsList.size(); ++i)
+    // {
+    //     if (clientsList.get(i).client->status() != WS_CONNECTED || !clientsList.get(i).client->client()->connected())
+    //         clientsList.remove(i);
+    // }
 }
 
 void Clients::deleteClient(uint16_t id)
 {
-    for (int16_t i = 0; i < clientsList.size(); ++i)
+    for (int16_t i = 0; i < clientsMap.size(); ++i)
     {
-        if (clientsList.get(i).id == id)
-            clientsList.remove(i);
+        if (clientsMap.valueAt(i)->id == id)
+            clientsMap.remove(clientsMap.keyAt(i));
     }
 }
 
-bool Clients::isContains(String val)
+void Clients::deleteClient(uint8_t *mac)
 {
-    for (int16_t i = 0; i < clientsList.size(); ++i)
+    clientsMap.remove(shortMAC(mac));
+}
+
+void Clients::deleteClientAfterSeconds(uint8_t *mac, uint16_t seconds)
+{
+}
+
+bool Clients::contains(uint8_t *mac)
+{
+    return clientsMap.contains(shortMAC(mac));
+}
+
+bool Clients::contains(uint32_t shortMac)
+{
+    return clientsMap.contains(shortMac);
+}
+
+bool Clients::getShortMacById(uint32_t &shortMac, uint16_t id)
+{
+    for (int16_t i = 0; i < clientsMap.size(); ++i)
     {
-        if (clientsList.get(i).mac.equals(val))
+        if (clientsMap.valueAt(i)->id == id)
+        {
+            shortMac = clientsMap.keyAt(i);
             return true;
+        }
     }
     return false;
 }
 
 void Clients::printClients()
 {
-    if (clientsList.size() != 0)
+    if (clientsMap.size() != 0)
     {
         Serial.println("Clients:");
-        for (int16_t i = 0; i < clientsList.size(); ++i)
+        for (int16_t i = 0; i < clientsMap.size(); ++i)
         {
-            Serial.print(clientsList.get(i).id);
-            Serial.print(": ");
-            Serial.println(clientsList.get(i).mac);
+            Serial.print(clientsMap.valueAt(i)->id);
+            Serial.print(":\t");
+
+            for (int j = 0; j < 5; ++j)
+            {
+                Serial.printf("%X", clientsMap.valueAt(i)->mac[j]);
+                Serial.print(":");
+            }
+            Serial.printf("%X", clientsMap.valueAt(i)->mac[5]);
         }
         Serial.println();
     }
+}
+
+void Clients::timeout(uint8_t *mac)
+{
+    clientsMap.remove(shortMAC(mac));
 }
