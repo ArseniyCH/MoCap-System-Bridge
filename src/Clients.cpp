@@ -13,33 +13,17 @@ Clients::Clients()
     clientsMap.setNullValue(nullptr);
 }
 
-void Clients::loop()
-{
-    updateClients();
-}
-
-void Clients::addClient(uint8_t *mac, AsyncWebSocketClient *client, uint16_t id, RGB color)
-{
-    ClientInfo *s;
-    for (int i = 0; i < 6; ++i)
-        s->mac[i] = mac[i];
-    s->color = color;
-    s->client = client;
-    s->id = id;
-    uint32_t m = shortMAC(mac);
-    if (!contains(m))
-        clientsMap[m] = s;
-    else if (client->id() != clientsMap[m]->id)
-        clientsMap[m] = s;
-}
-
-Ticker Clients::addEmptyClient(uint8_t *mac)
+ClientInfo *Clients::addEmptyClient(uint8_t *mac)
 {
     //Distruct if not confirmed
-    ClientInfo *eci;
-    eci->mac = mac;
+    Serial.println("here3");
+    ClientInfo *eci = new ClientInfo();
+    Serial.println("here3");
+    memcpy(eci->mac, mac, 6);
+    Serial.println("here3");
     clientsMap[shortMAC(mac)] = eci;
-    return eci->client_ticker;
+    Serial.println("here3");
+    return eci;
 }
 
 bool Clients::confirmClient(uint8_t *mac)
@@ -47,7 +31,6 @@ bool Clients::confirmClient(uint8_t *mac)
     ClientInfo *ci = clientsMap[shortMAC(mac)];
     if (ci)
     {
-        ClientInfo *ci = clientsMap[shortMAC(mac)];
         ci->confirmed = true;
         ci->client_ticker.detach();
         return true;
@@ -66,39 +49,109 @@ bool Clients::isConfirmed(uint16_t id)
 
 void Clients::completeClientInfo(uint8_t *mac, AsyncWebSocketClient *client, uint16_t id, RGB color)
 {
-    ClientInfo *ci = clientsMap[shortMAC(mac)];
+    uint32_t key = shortMAC(mac);
+    ClientInfo *ci = clientsMap[key];
     ci->client = client;
     ci->id = id;
-    ci->mac = mac;
 
-    //TODO: run ping/pong
-}
-
-void Clients::updateClients()
-{ //TODO: PEREPISAT' ETO GOVNO
-    // for (int16_t i = 0; i < clientsList.size(); ++i)
-    // {
-    //     if (clientsList.get(i).client->status() != WS_CONNECTED || !clientsList.get(i).client->client()->connected())
-    //         clientsList.remove(i);
-    // }
+    if (_onnewclient)
+        _onnewclient(ci->mac);
 }
 
 void Clients::deleteClient(uint16_t id)
 {
+    Serial.println("Delete by id");
+    ClientInfo *cci;
     for (int16_t i = 0; i < clientsMap.size(); ++i)
     {
-        if (clientsMap.valueAt(i)->id == id)
+        Serial.println("1111");
+        cci = clientsMap.valueAt(i);
+        if (cci && cci->id == id)
+        {
+            if (_ondeleteclient)
+                _ondeleteclient(cci->mac);
+            Serial.println("1112");
+            delete cci;
             clientsMap.remove(clientsMap.keyAt(i));
+        }
+        Serial.println("1113");
     }
 }
 
 void Clients::deleteClient(uint8_t *mac)
 {
-    clientsMap.remove(shortMAC(mac));
+    Serial.println("Delete by mac");
+    ClientInfo *ci = clientsMap[shortMAC(mac)];
+    Serial.println("a1");
+    if (ci)
+    {
+        if (_ondeleteclient)
+            _ondeleteclient(ci->mac);
+        Serial.println("a2");
+        delete ci;
+        Serial.println("a3");
+        clientsMap.remove(shortMAC(mac));
+        Serial.println("a4");
+    }
+    Serial.println("a5");
 }
 
-void Clients::deleteClientAfterSeconds(uint8_t *mac, uint16_t seconds)
+void Clients::deleteAllClients()
 {
+    Serial.println("Delete by id all");
+    ClientInfo *cci;
+    for (int16_t i = 0; i < clientsMap.size(); ++i)
+        deleteClient(clientsMap.valueAt(i)->mac);
+}
+
+void Clients::addOnDeleteHandler(MacEvent funcEvent)
+{
+    _ondeleteclient = funcEvent;
+}
+void Clients::addOnAddHandler(MacEvent funcEvent)
+{
+    _onnewclient = funcEvent;
+}
+
+bool Clients::getMac(uint8_t *&mac, uint16_t id)
+{
+    ClientInfo *cci;
+    for (uint16_t i = 0; i < clientsMap.size(); ++i)
+    {
+        cci = clientsMap.valueAt(i);
+        if (cci->id == id)
+        {
+            mac = cci->mac;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+int16_t Clients::getId(uint32_t shortMAC)
+{
+    ClientInfo *ci = clientsMap[shortMAC];
+    if (ci)
+        return ci->id;
+    return -1;
+}
+
+String Clients::getActiveClients()
+{
+    String clients = "";
+    uint8_t *cur_mac;
+    for (int i = 0; i < clientsMap.size(); ++i)
+    {
+        cur_mac = clientsMap.valueAt(i)->mac;
+
+        for (size_t j = 0; j < 6; ++j)
+        {
+            clients += cur_mac[j];
+        }
+    }
+
+    return clients;
 }
 
 bool Clients::contains(uint8_t *mac)
@@ -145,7 +198,7 @@ void Clients::printClients()
     }
 }
 
-void Clients::timeout(uint8_t *mac)
+uint16_t Clients::size()
 {
-    clientsMap.remove(shortMAC(mac));
+    return clientsMap.size();
 }

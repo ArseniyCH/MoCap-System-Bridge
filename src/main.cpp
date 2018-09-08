@@ -16,14 +16,8 @@
  */
 void setup()
 {
-  Serial.begin(115200);
-  Serial.setDebugOutput(true);
   state_setup();
 }
-
-String inString;
-
-uint32_t lastMillis = 0;
 
 /**
  * @brief Main loop method

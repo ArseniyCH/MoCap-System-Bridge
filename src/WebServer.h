@@ -17,6 +17,7 @@
 #include "Clients.h"
 
 typedef std::function<void()> Event;
+typedef std::function<void(uint8_t *, uint16_t)> WsBinaryEvent;
 typedef std::function<void(const WiFiEventSoftAPModeStationConnected &)> WiFiConnectedEvent;
 typedef std::function<void(const WiFiEventSoftAPModeStationDisconnected &)> WiFiDisconnectedEvent;
 
@@ -37,6 +38,17 @@ public:
      */
   void broadcastBin(uint8_t *buf, uint16_t len);
 
+  void sendBin(uint8_t *mac, uint8_t *buf, uint16_t len);
+
+  void msg_handler(WsBinaryEvent event);
+
+  String getActiveNodes();
+
+  void BindMode();
+  void NormalMode();
+
+  const uint32_t bridge_id = 0;
+
 private:
   /**
      * @brief Recieve ws events
@@ -50,9 +62,14 @@ private:
      */
   void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
 
+  void establishConnection(const char *hostname);
+
+  void onClientChange(uint8_t cmd, uint8_t *mac);
+  void OnAddClient(uint8_t *mac);
+  void OnDeleteClient(uint8_t *mac);
+
   AsyncWebServer server = AsyncWebServer(80);
   AsyncWebSocket ws = AsyncWebSocket("/ws");
-  AsyncEventSource events = AsyncEventSource("/events");
 
   Event _connect;
   WiFiConnectedEvent _wificonnect = [](const WiFiEventSoftAPModeStationConnected &) {};
@@ -62,13 +79,14 @@ private:
   WiFiEventHandler connectHandler;
   WiFiEventHandler disconnectHandler;
 
-  const uint32_t bridge_id = 0;
-  const char *hostName = "mcs_" + bridge_id;
-  const char *bindHastName = "mscbnd_" + bridge_id;
+  const char *hostName = "mcs_0";
+  const char *bindHostName = "mcsbnd_0";
 
   Clients clients = Clients();
 
-  Queue queue = Queue(sizeof(Clients), 15, FIFO);
+  WsBinaryEvent _msghandler;
+
+  Ticker ping_ticker;
 };
 
 #endif
